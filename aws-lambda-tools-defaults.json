@@ -10,6 +10,17 @@
   "configuration": "Release",
   "function-runtime": "dotnet8",
   "function-memory-size": 512,
-  "function-timeout": 30,
-  "function-handler": "TenderDatabaseWriterLambda::TenderDatabaseWriterLambda.Function::FunctionHandler"
+  "function-timeout": 240,
+  "function-handler": "TenderDatabaseWriterLambda::TenderDatabaseWriterLambda.Function::FunctionHandler",
+  "framework": "net8.0",
+  "function-name": "TenderDatabaseWriterLambda",
+  "function-description": "Tender Database Writer: A .NET 8 Lambda that consumes fully processed tender messages from the WriteQueue, maps them to Entity Framework models, and writes the final record to the SQL Server database. Routes failed writes to DBWriteFailedQueue.",
+  "package-type": "Zip",
+  "function-role": "arn:aws:iam::211635102441:role/DatabaseWriterLambdaRole",
+  "function-architecture": "x86_64",
+  "function-subnets": "subnet-0f47b68400d516b1e,subnet-072a27234084339fc",
+  "function-security-groups": "sg-0dc0af4fcf50676e9",
+  "tracing-mode": "PassThrough",
+  "environment-variables": "\u0022SOURCE_QUEUE_URL\u0022=\u0022https://sqs.us-east-1.amazonaws.com/211635102441/WriteQueue.fifo\u0022;\u0022FAILED_QUEUE_URL\u0022=\u0022https://sqs.us-east-1.amazonaws.com/211635102441/DBWriteFailedQueue.fifo\u0022;\u0022DB_CONNECTION_STRING\u0022=\u0022Server=tender-tool-db.c2hq4seoidxc.us-east-1.rds.amazonaws.com,1433;Database=tendertool_db;User Id=admin;Password=yf2pCQJoHbxWyYj6lehx;Encrypt=True;TrustServerCertificate=True\u0022",
+  "image-tag": ""
 }
