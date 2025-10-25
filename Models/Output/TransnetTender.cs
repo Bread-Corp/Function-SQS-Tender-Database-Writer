@@ -16,8 +16,12 @@ namespace TenderDatabaseWriterLambda.Models.Output
 
         public string? Region { get; set; }
 
+        public string? ContactPerson { get; set; }
+
         public string? Email { get; set; }
 
-        public string? FullNoticeText { get; set; }
+        public string? Institution { get; set; }
+
+        public string? TenderType { get; set; }
     }
 }

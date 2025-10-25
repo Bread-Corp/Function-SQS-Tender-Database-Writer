@@ -23,6 +23,9 @@ namespace TenderDatabaseWriterLambda.Data
         public DbSet<TransnetTender> TransnetTenders { get; set; }
         public DbSet<SarsTender> SarsTenders { get; set; }
 
+        //Tags and Docs
+        public DbSet<Tag> Tags { get; set; }
+        public DbSet<SupportingDoc> SupportingDocs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -35,6 +38,25 @@ namespace TenderDatabaseWriterLambda.Data
             modelBuilder.Entity<SanralTender>(entity => { entity.ToTable("SanralTender"); });
             modelBuilder.Entity<TransnetTender>(entity => { entity.ToTable("TransnetTender"); });
             modelBuilder.Entity<SarsTender>(entity => { entity.ToTable("SarsTender"); });
+
+
+            //Relationships for Tags and Docs
+            modelBuilder.Entity<Tag>()
+                .HasMany(t => t.Tenders)
+                .WithMany(b => b.Tags)
+                .UsingEntity<Dictionary<string, object>>(
+                    "Tender_Tag",
+                    j => j
+                        .HasOne<BaseTender>()
+                        .WithMany()
+                        .HasForeignKey("TenderID")
+                        .OnDelete(DeleteBehavior.Cascade),
+                    j => j
+                        .HasOne<Tag>()
+                        .WithMany()
+                        .HasForeignKey("TagID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                );
         }
     }
 }

@@ -31,11 +31,11 @@ namespace TenderDatabaseWriterLambda.Models.Output
 
         [Required]
         [JsonProperty("Source")]
-        public string Source { get; set; } //Appended manually from lambda function.
+        public string Source { get; set; }
 
-        public List<Tag> Tags { get; set; } = new(); //Appended from comprehend.
+        public List<Tag> Tags { get; set; } = new();
 
-        public string? Description { get; set; } //AI summary possibly.
+        public string? Description { get; set; }
 
         public string? AISummary { get; set; } //Another field for AI summary
 

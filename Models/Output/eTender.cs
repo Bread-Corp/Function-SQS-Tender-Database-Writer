@@ -12,10 +12,14 @@ namespace TenderDatabaseWriterLambda.Models.Output
         [Required]
         public string? TenderNumber { get; set; }
 
-        public string? Category { get; set; }
+        public string? Audience { get; set; }
 
-        public string? TenderType { get; set; }
+        public string? Email { get; set; }
 
-        public string? Department { get; set; }
+        public string? OfficeLocation { get; set; }
+
+        public string? Address { get; set; }
+
+        public string? Province { get; set; }
     }
 }
