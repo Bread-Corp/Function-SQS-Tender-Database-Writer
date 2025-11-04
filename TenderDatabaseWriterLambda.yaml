@@ -1,0 +1,96 @@
+# This AWS SAM template has been generated from your function's configuration. If
+# your function has one or more triggers, note that the AWS resources associated
+# with these triggers aren't fully specified in this template and include
+# placeholder values. Open this template in AWS Infrastructure Composer or your
+# favorite IDE and modify it to specify a serverless application with other AWS
+# resources.
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: An AWS Serverless Application Model template describing your function.
+Resources:
+  TenderDatabaseWriterLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Description: >-
+        Tender Database Writer: A .NET 8 Lambda that consumes fully processed
+        tender messages from the WriteQueue, maps them to Entity Framework
+        models, and writes the final record to the SQL Server database. Routes
+        failed writes to DBWriteFailedQueue.
+      MemorySize: 512
+      Timeout: 240
+      Handler: >-
+        TenderDatabaseWriterLambda::TenderDatabaseWriterLambda.Function::FunctionHandler
+      Runtime: dotnet8
+      Architectures:
+        - x86_64
+      EphemeralStorage:
+        Size: 512
+      Environment:
+        Variables:
+          DB_CONNECTION_STRING: >-
+            Server=tender-tool-db.c2hq4seoidxc.us-east-1.rds.amazonaws.com,1433;Database=tendertool_db;User
+            Id=admin;Password=yf2pCQJoHbxWyYj6lehx;Encrypt=True;TrustServerCertificate=True
+          FAILED_QUEUE_URL: >-
+            https://sqs.us-east-1.amazonaws.com/211635102441/DBWriteFailedQueue.fifo
+          SOURCE_QUEUE_URL: https://sqs.us-east-1.amazonaws.com/211635102441/WriteQueue.fifo
+      EventInvokeConfig:
+        MaximumEventAgeInSeconds: 21600
+        MaximumRetryAttempts: 2
+      PackageType: Zip
+      Policies:
+        - Statement:
+            - Sid: AllowCloudWatchLogs
+              Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: arn:aws:logs:*:*:*
+            - Sid: AllowSQSReadFromWriteQueue
+              Effect: Allow
+              Action:
+                - sqs:ReceiveMessage
+                - sqs:DeleteMessage
+                - sqs:GetQueueAttributes
+              Resource:
+                - !GetAtt SQSQueue1.Arn
+            - Sid: AllowSQSSendToFailedQueue
+              Effect: Allow
+              Action:
+                - sqs:SendMessage
+              Resource:
+                - !GetAtt SQSQueue1.Arn
+            - Sid: AllowVPCConnectionForRDS
+              Effect: Allow
+              Action:
+                - ec2:CreateNetworkInterface
+                - ec2:DescribeNetworkInterfaces
+                - ec2:DeleteNetworkInterface
+              Resource: '*'
+      RecursiveLoop: Terminate
+      SnapStart:
+        ApplyOn: None
+      VpcConfig:
+        SecurityGroupIds:
+          - sg-0dc0af4fcf50676e9
+        SubnetIds:
+          - subnet-0f47b68400d516b1e
+          - subnet-072a27234084339fc
+        Ipv6AllowedForDualStack: false
+      Events:
+        SQS1:
+          Type: SQS
+          Properties:
+            Queue:
+              Fn::GetAtt:
+                - SQSQueue1
+                - Arn
+            BatchSize: 10
+      RuntimeManagementConfig:
+        UpdateRuntimeOn: Auto
+  SQSQueue1:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: SQSQueue1
+      SqsManagedSseEnabled: true
