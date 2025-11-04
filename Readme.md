@@ -204,24 +204,280 @@ Follow these steps to set up the project for local development.
    dotnet user-secrets set "DB_CONNECTION_STRING" "your-full-connection-string"
    ```
 
-## 📦 Deployment Guide
+## 📦 Deployment
 
-### Step 1: Build & Package
+This Lambda function can be deployed using three different methods. Choose the one that best fits your workflow and requirements.
+
+### Prerequisites
+
+Before deploying, ensure you have:
+
+- .NET 8 SDK installed
+- AWS CLI configured with appropriate credentials
+- SQL Server RDS instance running and accessible
+- VPC configured with appropriate subnets and security groups
+- SQS queues created (WriteQueue.fifo and DBWriteFailedQueue.fifo)
+- Required environment variables configured (see Configuration section)
+
+---
+
+### Method 1: AWS Toolkit Deployment
+
+Deploy directly from your IDE using the AWS Toolkit extension.
+
+#### For Visual Studio 2022:
+
+1. **Install AWS Toolkit:**
+   - Install the AWS Toolkit for Visual Studio from the Visual Studio Marketplace
+
+2. **Configure AWS Credentials:**
+   - Ensure your AWS credentials are configured in Visual Studio
+   - Go to View → AWS Explorer and configure your profile
+
+3. **Deploy the Function:**
+   - Right-click on the `TenderDatabaseWriterLambda.csproj` project
+   - Select "Publish to AWS Lambda..."
+   - Configure the deployment settings:
+     - **Function Name**: `TenderDatabaseWriterLambda`
+     - **Runtime**: `.NET 8`
+     - **Memory**: `512 MB`
+     - **Timeout**: `240 seconds`
+     - **Handler**: `TenderDatabaseWriterLambda::TenderDatabaseWriterLambda.Function::FunctionHandler`
+
+4. **Configure VPC Settings:**
+   - **VPC**: Select your VPC
+   - **Subnets**: `subnet-0f47b68400d516b1e`, `subnet-072a27234084339fc`
+   - **Security Groups**: `sg-0dc0af4fcf50676e9`
+
+5. **Set Environment Variables:**
+   ```
+   SOURCE_QUEUE_URL: https://sqs.us-east-1.amazonaws.com/211635102441/WriteQueue.fifo
+   FAILED_QUEUE_URL: https://sqs.us-east-1.amazonaws.com/211635102441/DBWriteFailedQueue.fifo
+   DB_CONNECTION_STRING: Server=your-rds-endpoint,1433;Database=tendertool_db;User Id=admin;Password=your-password;Encrypt=True;TrustServerCertificate=True
+   ```
+
+#### For VS Code:
+
+1. **Install AWS Toolkit:**
+   - Install the AWS Toolkit extension for VS Code
+
+2. **Open Command Palette:**
+   - Press `Ctrl+Shift+P` (Windows/Linux) or `Cmd+Shift+P` (Mac)
+   - Type "AWS: Deploy SAM Application"
+
+3. **Follow the deployment wizard** to configure and deploy your function
+
+---
+
+### Method 2: SAM Deployment
+
+Deploy using AWS SAM CLI with the provided template file.
+
+#### Step 1: Install SAM CLI
 
 ```bash
-dotnet lambda package -c Release -o ./build/deploy-package.zip
+# For Windows (using Chocolatey)
+choco install aws-sam-cli
+
+# For macOS (using Homebrew)
+brew install aws-sam-cli
+
+# For Linux (using pip)
+pip install aws-sam-cli
 ```
 
-### Step 2: Deploy to Lambda
+#### Step 2: Install Lambda Tools
 
-1. Create a new Lambda function (`Sqs_Database_Writer`) with a .NET 8 runtime and your IAM role.
-2. Upload the `deploy-package.zip` file.
-3. **Handler**: Set to `Sqs_Database_Writer::Sqs_Database_Writer.Function::FunctionHandler`.
-4. **VPC**: Connect the Lambda to the **same VPC and private subnets** as your RDS database.
-5. **Security Group**: Assign a security group that can access your RDS instance (e.g., has an inbound rule allowing port `1433` from this SG) AND the SQS VPC Endpoint (has an inbound rule allowing port `443` from this SG).
-6. **Environment Variables**: Add the 3 required variables from the Configuration section.
-7. **Timeout**: Set a reasonable timeout (e.g., **2-3 minutes**) to allow for database connections and polling.
-8. **Trigger**: Add an SQS trigger pointing to `WriteQueue.fifo` with a batch size of 10.
+```bash
+dotnet tool install -g Amazon.Lambda.Tools
+```
+
+#### Step 3: Build and Deploy
+
+```bash
+# Build the project
+dotnet restore
+dotnet build -c Release
+
+# Package the Lambda function
+dotnet lambda package -c Release -o ./lambda-package.zip TenderDatabaseWriterLambda.csproj
+
+# Deploy using SAM
+sam deploy --template-file TenderDatabaseWriterLambda.yaml \
+           --stack-name tender-database-writer-lambda \
+           --capabilities CAPABILITY_IAM \
+           --parameter-overrides \
+             SourceQueueUrl="https://sqs.us-east-1.amazonaws.com/211635102441/WriteQueue.fifo" \
+             FailedQueueUrl="https://sqs.us-east-1.amazonaws.com/211635102441/DBWriteFailedQueue.fifo" \
+             DatabaseConnectionString="Server=your-rds-endpoint,1433;Database=tendertool_db;User Id=admin;Password=your-password;Encrypt=True;TrustServerCertificate=True"
+```
+
+#### Alternative: Guided Deployment
+
+For first-time deployment, use SAM's guided mode:
+
+```bash
+sam deploy --guided
+```
+
+This will prompt you for all configuration options and save them for future deployments.
+
+#### Important VPC Configuration
+
+The SAM template includes VPC configuration. Ensure your AWS account has:
+- VPC with subnets: `subnet-0f47b68400d516b1e`, `subnet-072a27234084339fc`
+- Security group: `sg-0dc0af4fcf50676e9`
+- Security group configured to allow:
+  - Outbound access to RDS on port 1433
+  - Outbound access to SQS VPC endpoint on port 443
+
+---
+
+### Method 3: Workflow Deployment (GitHub Actions)
+
+Deploy automatically using GitHub Actions when pushing to the release branch.
+
+#### Step 1: Set Up Repository Secrets
+
+In your GitHub repository, go to Settings → Secrets and variables → Actions, and add:
+
+```
+AWS_ACCESS_KEY_ID: your-aws-access-key-id
+AWS_SECRET_ACCESS_KEY: your-aws-secret-access-key
+AWS_REGION: us-east-1
+```
+
+#### Step 2: Deploy via Release Branch
+
+```bash
+# Create and switch to release branch
+git checkout -b release
+
+# Make your changes and commit
+git add .
+git commit -m "Deploy Database Writer Lambda updates"
+
+# Push to trigger deployment
+git push origin release
+```
+
+#### Step 3: Monitor Deployment
+
+1. Go to your repository's **Actions** tab
+2. Monitor the "Deploy .NET Lambda to AWS" workflow
+3. Check the deployment logs for any issues
+
+#### Manual Trigger
+
+You can also trigger the deployment manually:
+
+1. Go to the **Actions** tab in your repository
+2. Select "Deploy .NET Lambda to AWS"
+3. Click "Run workflow"
+4. Select the branch and click "Run workflow"
+
+---
+
+### Post-Deployment Verification
+
+After deploying using any method, verify the deployment:
+
+#### 1. Check Lambda Function
+
+```bash
+# Verify function exists and configuration
+aws lambda get-function --function-name TenderDatabaseWriterLambda
+
+# Check environment variables
+aws lambda get-function-configuration --function-name TenderDatabaseWriterLambda
+```
+
+#### 2. Verify VPC Configuration
+
+```bash
+# Check VPC configuration
+aws lambda get-function-configuration --function-name TenderDatabaseWriterLambda --query 'VpcConfig'
+```
+
+#### 3. Test Database Connectivity
+
+```bash
+# Create a test event and invoke the function (optional)
+aws lambda invoke \
+  --function-name TenderDatabaseWriterLambda \
+  --payload '{}' \
+  response.json
+```
+
+#### 4. Monitor CloudWatch Logs
+
+```bash
+# View recent logs
+aws logs describe-log-groups --log-group-name-prefix "/aws/lambda/TenderDatabaseWriterLambda"
+```
+
+---
+
+### Environment Variables Setup
+
+Ensure these environment variables are configured in your Lambda function:
+
+| Variable | Value | Description |
+|----------|-------|-------------|
+| `SOURCE_QUEUE_URL` | `https://sqs.us-east-1.amazonaws.com/211635102441/WriteQueue.fifo` | Source SQS queue for incoming processed messages |
+| `FAILED_QUEUE_URL` | `https://sqs.us-east-1.amazonaws.com/211635102441/DBWriteFailedQueue.fifo` | Dead letter queue for failed database writes |
+| `DB_CONNECTION_STRING` | `Server=your-rds-endpoint,1433;Database=tendertool_db;User Id=admin;Password=your-password;Encrypt=True;TrustServerCertificate=True` | SQL Server connection string |
+
+> **Security Note**: For production deployments, store the database connection string in AWS Secrets Manager and reference it in the Lambda function instead of using plain text.
+
+---
+
+### Critical VPC and Security Configuration
+
+This Lambda function requires specific VPC configuration to access both the RDS database and SQS services:
+
+#### VPC Requirements:
+- **Subnets**: Must be in private subnets with route to NAT Gateway or VPC Endpoints
+- **Security Groups**: Must allow outbound traffic to:
+  - RDS instance on port 1433 (SQL Server)
+  - SQS VPC endpoint on port 443 (HTTPS)
+
+#### Security Group Configuration:
+
+**For Lambda Security Group:**
+```
+Outbound Rules:
+- Type: MS SQL, Port: 1433, Destination: RDS Security Group
+- Type: HTTPS, Port: 443, Destination: SQS VPC Endpoint Security Group
+```
+
+**For RDS Security Group:**
+```
+Inbound Rules:
+- Type: MS SQL, Port: 1433, Source: Lambda Security Group
+```
+
+---
+
+### Troubleshooting Deployment Issues
+
+**VPC Connection Errors:**
+- Ensure Lambda is in the same VPC as your RDS instance
+- Verify security group rules allow Lambda to reach RDS on port 1433
+- Check that SQS VPC endpoint exists and Lambda can reach it on port 443
+
+**Database Connection Errors:**
+- Verify RDS instance is running and accessible
+- Check connection string format and credentials
+- Ensure RDS security group allows inbound connections from Lambda
+
+**Permission Errors:**
+- Verify IAM role has necessary permissions for SQS, RDS access, and VPC operations
+- Check CloudWatch logs for specific permission errors
+
+**Package Size Issues:**
+- The deployment package should be under 50MB when uncompressed
+- Use `dotnet lambda package` to create optimized packages
 
 ## 🧰 Troubleshooting & Team Gotchas
 
